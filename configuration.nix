@@ -57,6 +57,36 @@
   # Configure console keymap
   console.keyMap = "sg";
 
+  #Configure Intel Graphics
+services.xserver.videoDrivers = [ "modesetting" ];
+
+hardware.graphics = {
+  enable = true;
+  extraPackages = with pkgs; [
+    # Required for modern Intel GPUs (Xe iGPU and ARC)
+    intel-media-driver     # VA-API (iHD) userspace
+    vpl-gpu-rt             # oneVPL (QSV) runtime
+
+    # Optional (compute / tooling):
+    intel-compute-runtime  # OpenCL (NEO) + Level Zero for Arc/Xe
+    # NOTE: 'intel-ocl' also exists as a legacy package; not recommended for Arc/Xe.
+    # libvdpau-va-gl       # Only if you must run VDPAU-only apps
+  ];
+};
+
+environment.sessionVariables = {
+  LIBVA_DRIVER_NAME = "iHD";     # Prefer the modern iHD backend
+  # VDPAU_DRIVER = "va_gl";      # Only if using libvdpau-va-gl
+};
+
+# May help if FFmpeg/VAAPI/QSV init fails (esp. on Arc with i915):
+hardware.enableRedistributableFirmware = true;
+boot.kernelParams = [ "i915.enable_guc=3" ];
+
+# May help services that have trouble accessing /dev/dri (e.g., jellyfin/plex):
+# users.users.<service>.extraGroups = [ "video" "render" ];  
+
+
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
@@ -89,11 +119,24 @@
      mpv
      transmission_4-gtk
      libreoffice-fresh
+     onedrivegui
+     onedrive
+     proton-vpn
+     abcde    
+     freac
+     lame
+     flac
+     eyed3
+     id3
+     handbrake
+     idevicerestore
+     libimobiledevice
+     usbmuxd
 ];
   };
-
+nixpkgs.config.allowUnfree = true;  #for steam
 powerManagement.enable = true;
-
+services.usbmuxd.enable = true; #for ipad restoration
  virtualisation.dockur-windows = {
   enable = true;
     
@@ -113,26 +156,23 @@ powerManagement.enable = true;
     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     wget
     git
+
   ];
+# add fwupd to update firmware
+services.fwupd.enable = true;
 
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
-  # programs.gnupg.agent = {
-  #   enable = true;
-  #   enableSSHSupport = true;
-  # };
+  # automatic system upgrade
+  
+  system.autoUpgrade.enable = true;
+  system.autoUpgrade.allowReboot = false;
 
-  # List services that you want to enable:
 
-  # Enable the OpenSSH daemon.
-  # services.openssh.enable = true;
-
-  # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
-  # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
+  # automatic garbage collection
+  nix.gc = {
+  automatic = true;
+  dates = "weekly";
+  options = "--delete-older-than 30d";
+};
 
   # Copy the NixOS configuration file and link it from the resulting system
   # (/run/current-system/configuration.nix). This is useful in case you
